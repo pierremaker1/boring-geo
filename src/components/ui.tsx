@@ -95,7 +95,8 @@ const BTN_VARIANT = {
 } as const
 
 // Désactivé : gris à plat mais lisible (ink-soft sur line ≈ 4,75:1).
-// Chargement : on garde la couleur de la variante (le libellé reste lisible), juste atténuée + 🌍 qui tourne.
+// Chargement : on garde la couleur de la variante (le libellé reste lisible), juste atténuée + ⏳ qui tourne
+// (neutre : la mascotte ⚖️ est réservée à Mascot / favicon).
 const DISABLED_LOOK = 'disabled:cursor-not-allowed disabled:bg-line disabled:text-ink-soft disabled:border-line'
 const LOADING_LOOK = 'cursor-wait opacity-70'
 
@@ -118,7 +119,7 @@ export function Button({
       }}
       {...rest}
     >
-      {loading ? <span className="inline-block animate-spin" aria-hidden>🌍</span> : icon}
+      {loading ? <span className="inline-block animate-spin" aria-hidden>⏳</span> : icon}
       {children}
     </button>
   )

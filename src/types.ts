@@ -51,9 +51,35 @@ export interface AnswerResult {
   correct_index: number
 }
 
-// Un mode = un thème entier ("geo") ou un sous-type ("geo:drapeau"), filtré côté serveur
-export const THEMES: { id: string; label: string; emoji: string; description: string }[] = [
-  { id: 'geo', label: 'Géographie', emoji: '🌍', description: 'Capitales, drapeaux, fleuves, montagnes…' },
-  { id: 'geo:drapeau', label: 'Drapeaux', emoji: '🏁', description: '100 % drapeaux, à reconnaître au premier coup d’œil' },
-  { id: 'histoire', label: 'Histoire', emoji: '🏛️', description: 'De l’Antiquité à nos jours' },
-]
+// Un mode (table `modes`) = un thème entier ou un sous-ensemble de sous-types, regroupé par cours
+export interface Mode {
+  id: string
+  course: string
+  theme: string
+  label: string
+  description: string | null
+  emoji: string | null
+  sort: number
+}
+
+// Une question de la partie terminée, avec la réponse du joueur (révision)
+export interface ReviewItem {
+  position: number
+  id: string
+  external_id: string | null
+  subtype: string
+  difficulty: number | null
+  prompt: string
+  choices: string[]
+  image_url: string | null
+  correct_index: number
+  chosen_index: number | null
+  is_correct: boolean | null
+  explanation: string | null
+  flag: string | null
+  disputed: string | null
+  source: string | null
+}
+
+// Mode proposé par défaut à la création d'une partie
+export const DEFAULT_MODE = 'echr:full'

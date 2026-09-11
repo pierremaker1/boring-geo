@@ -6,6 +6,7 @@ import { loadNickname, loadSession, saveNickname, saveSession } from '../lib/ses
 import { Avatar } from '../components/Avatar'
 import { Mascot } from '../components/Mascot'
 import { Button, Card, Divider, ErrorMsg, Input, Keycap, Page } from '../components/ui'
+import { DEFAULT_MODE } from '../types'
 
 // ---------------------------------------------------------------------------
 // Décor local (propriété de la page Home — aucun composant partagé modifié)
@@ -18,10 +19,11 @@ import { Button, Card, Divider, ErrorMsg, Input, Keycap, Page } from '../compone
 //   [@media(min-width:640px)_and_(min-height:701px)]:…    → desktop ET assez haut (pas-à-pas)
 // ---------------------------------------------------------------------------
 
+// Stickers « droit / étude » autour du héros (la balance ⚖️ est réservée à la mascotte et au favicon).
 const STICKERS = [
-  { emoji: '🧭', pos: 'left-1 top-0', tilt: '-rotate-12', delay: '0s' },
-  { emoji: '🗺️', pos: 'right-1 top-2', tilt: 'rotate-12', delay: '-1.2s' },
-  { emoji: '🏁', pos: 'right-6 bottom-6', tilt: '-rotate-6', delay: '-2.1s' },
+  { emoji: '📚', pos: 'left-1 top-0', tilt: '-rotate-12', delay: '0s' },
+  { emoji: '🎓', pos: 'right-1 top-2', tilt: 'rotate-12', delay: '-1.2s' },
+  { emoji: '📜', pos: 'right-6 bottom-6', tilt: '-rotate-6', delay: '-2.1s' },
 ] as const
 
 // Vignette emoji sur tuile blanche 3D qui flotte autour du héros. La rotation vit sur l'enfant
@@ -44,8 +46,8 @@ function Sticker({ emoji, pos, tilt, delay }: (typeof STICKERS)[number]) {
 
 const STEPS = [
   'Crée une partie ou entre un code',
-  'Partage le code à ton adversaire',
-  'Réponds vite, chacun à son rythme',
+  'Choisis un cours et un mode, partage le code',
+  'Réponds vite, puis revois tes erreurs',
 ] as const
 
 const CODE_SLOTS = [0, 1, 2, 3, 4] as const
@@ -77,7 +79,7 @@ export function Home() {
   }
 
   const create = () => run(async () => {
-    const s = await api.createGame(nick, 20, 120, 'geo')
+    const s = await api.createGame(nick, 20, 120, DEFAULT_MODE)
     saveSession(s)
     navigate(`/lobby/${s.code}`)
   })
@@ -88,8 +90,12 @@ export function Home() {
     void create()
   }
 
+  // Mêmes gardes que le bouton « Rejoindre » : la soumission implicite (Entrée) ne doit pas en dépendre
+  const joinDisabled = busy || !nick || code.length < 5
+
   const join = (e: FormEvent) => {
     e.preventDefault()
+    if (joinDisabled) return
     void run(async () => {
       const s = await api.joinGame(code, nick)
       saveSession(s)
@@ -97,7 +103,6 @@ export function Home() {
     })
   }
 
-  const joinDisabled = busy || !nick || code.length < 5
   const avatarKey = nick ? avatarFor(nick) : '?'
 
   return (
@@ -117,13 +122,13 @@ export function Home() {
           <h1 className="-rotate-2 font-display text-hero font-bold text-ink [@media(max-width:639px)_and_(max-height:700px)]:text-[2.5rem]">
             <span className="strike-red animate-pop-in">Boring</span>{' '}
             <span className="inline-block animate-pop-in text-blue [animation-delay:120ms] motion-reduce:animate-none [text-shadow:0_4px_0_var(--color-blue-dark)]">
-              Geo
+              Law
             </span>
           </h1>
         </div>
 
         <p className="mx-auto mt-3 max-w-[32ch] animate-pop-in text-balance text-lg font-bold text-ink-soft [animation-delay:200ms] motion-reduce:animate-none [@media(max-height:700px)]:mt-1 [@media(max-height:700px)]:text-base">
-          Course de géo à deux, contre la montre. Zéro ennui garanti.
+          Révise ton cours à deux, contre la montre. Zéro ennui garanti.
         </p>
       </header>
 
@@ -210,7 +215,7 @@ export function Home() {
           <span className="text-2xl leading-none" aria-hidden>⏳</span>
           <p className="min-w-0 flex-1 basis-48">
             <span className="block text-[15px] font-bold text-ink">Tu as une partie en cours&nbsp;:</span>
-            <span className="block font-display text-[22px] font-bold leading-tight tracking-[.2em] text-navy">
+            <span className="block font-display text-[22px] font-bold leading-tight tracking-[.2em] text-ink">
               {existing.code}
             </span>
           </p>
@@ -234,7 +239,7 @@ export function Home() {
           >
             <span
               aria-hidden
-              className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-blue-soft font-display text-base font-bold text-navy"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-blue-soft font-display text-base font-bold text-ink"
             >
               {i + 1}
             </span>

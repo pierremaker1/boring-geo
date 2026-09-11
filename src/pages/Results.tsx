@@ -1,20 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { api, ApiError } from '../lib/api'
 import { clearSession } from '../lib/session'
 import { useGame } from '../hooks/useGame'
+import { useModes } from '../hooks/useModes'
 import { useSession } from '../hooks/useSession'
 import { useReducedMotion } from '../hooks/useReducedMotion'
-import { Button, Card, Page, Skeleton } from '../components/ui'
+import { Button, Card, Chip, ErrorMsg, Page, Skeleton } from '../components/ui'
 import { Mascot } from '../components/Mascot'
 import { Avatar } from '../components/Avatar'
 import { SegmentBar } from '../components/PlayerBar'
 import { Stars } from '../components/Stars'
 import { AnimatedNumber } from '../components/AnimatedNumber'
 import { ScoreCompare } from '../components/ScoreCompare'
+import { ReviewList, isFlagged, reviewStatus, type ReviewFilter } from '../components/ReviewList'
 import { celebrate } from '../lib/confetti'
 import { sfx } from '../lib/sound'
 import { loadStreak } from '../lib/streak'
-import { THEMES, type PlayerInfo } from '../types'
+import type { PlayerInfo, ReviewItem } from '../types'
 
 // ---------------------------------------------------------------------------
 // Chronologie (ms après l'arrivée de l'état « finished ») — verdict immédiat (§6.4) :
@@ -32,10 +35,13 @@ const DUEL_DELAY_MS = 900
 
 type Verdict = 'win' | 'tie' | 'lose'
 
+// Titres héros sur le canvas : la couleur vive reste (spec §6.4) mais cerclée d'un contour -dark
+// (`-webkit-text-stroke`) pour tenir sur bleu pâle ; « Égalité ! » passe en ink (le jaune seul ≈ 1,4:1),
+// le jaune porte l'ombre.
 const VERDICT = {
-  win: { text: 'Victoire !', cls: 'text-green', shadow: '0 4px 0 var(--color-green-dark)' },
-  tie: { text: 'Égalité !', cls: 'text-yellow', shadow: '0 4px 0 var(--color-yellow-dark)' },
-  lose: { text: 'Pas cette fois…', cls: 'text-blue', shadow: '0 4px 0 var(--color-blue-dark)' },
+  win: { text: 'Victoire !', cls: 'text-green', shadow: '0 4px 0 var(--color-green-dark)', stroke: '1.5px var(--color-green-dark)' },
+  tie: { text: 'Égalité !', cls: 'text-ink', shadow: '0 4px 0 var(--color-yellow)', stroke: undefined },
+  lose: { text: 'Pas cette fois…', cls: 'text-blue', shadow: '0 4px 0 var(--color-blue-dark)', stroke: '1.5px var(--color-blue-dark)' },
 } as const
 
 const MOOD = { win: 'party', tie: 'idle', lose: 'sad' } as const
@@ -46,13 +52,24 @@ const ROW = {
   tie: 'bg-yellow-soft border-yellow',
 } as const
 
-// -dark plutôt que la couleur vive (text-blue / text-purple ≈ 2,5:1 sur blanc) : 48 px, gras
-const SCORE_COLOR = { me: 'text-blue-dark', opp: 'text-purple-dark' } as const
+// Score 48 px en ink (≥ 13:1 sur les lignes -soft) ; la couleur joueur est portée par un soulignement
+// 4 px sous le chiffre (l'Avatar et la SegmentBar la portent déjà).
+const SCORE_BAR = { me: 'bg-blue', opp: 'bg-purple' } as const
+
+// Révision : get_review chargé une fois la partie finie ; « game_not_finished » = on réessaie au prochain état.
+// `items === null && error === null` = chargement (squelette).
+type Review = { items: ReviewItem[] | null; error: string | null }
+const REVIEW_IDLE: Review = { items: null, error: null }
+
+function plural(n: number, one: string, many: string): string {
+  return `${n} ${n > 1 ? many : one}`
+}
 
 export function Results() {
   const session = useSession()
   const navigate = useNavigate()
   const { state } = useGame(session)
+  const { modes, loading: modesLoading } = useModes()
   const reduced = useReducedMotion() === true
 
   const game = state?.game
@@ -90,6 +107,50 @@ export function Results() {
 
   const bestStreak = useMemo(() => (session ? loadStreak(session.code).best : 0), [session])
 
+  // Révision : une seule requête ; si le serveur répond game_not_finished, on retente au prochain
+  // rafraîchissement de `state` (Realtime / poll 5 s). `reviewTry` = bouton « Réessayer ».
+  const [review, setReview] = useState<Review>(REVIEW_IDLE)
+  const [filter, setFilter] = useState<ReviewFilter>('all')
+  const [reviewTry, setReviewTry] = useState(0)
+  const reviewReq = useRef<'idle' | 'pending' | 'done'>('idle')
+
+  useEffect(() => {
+    if (!session || !state || state.game.status !== 'finished') return
+    if (reviewReq.current !== 'idle') return
+    reviewReq.current = 'pending'
+    api.getReview(session.token)
+      .then((items) => {
+        reviewReq.current = 'done'
+        let wrong = 0
+        for (const it of items) if (reviewStatus(it) === 'wrong') wrong++
+        setFilter(wrong > 0 ? 'wrong' : 'all')
+        setReview({ items, error: null })
+      })
+      .catch((e) => {
+        if (e instanceof ApiError && e.code === 'game_not_finished') {
+          reviewReq.current = 'idle' // on garde le squelette, prochain état → nouvel essai
+          return
+        }
+        reviewReq.current = 'done'
+        setReview({ items: null, error: e instanceof Error ? e.message : String(e) })
+      })
+  }, [session, state, reviewTry])
+
+  const retryReview = () => {
+    reviewReq.current = 'idle'
+    setReview(REVIEW_IDLE)
+    setReviewTry((t) => t + 1)
+  }
+
+  const counts = useMemo(() => {
+    const c = { correct: 0, wrong: 0, unseen: 0, flagged: 0 }
+    for (const it of review.items ?? []) {
+      c[reviewStatus(it)]++
+      if (isFlagged(it)) c.flagged++
+    }
+    return c
+  }, [review.items])
+
   if (!session) return null
   if (!state || !game) {
     return (
@@ -111,7 +172,14 @@ export function Results() {
 
   const verdict: Verdict = tie ? 'tie' : iWon ? 'win' : 'lose'
   const title = VERDICT[verdict]
-  const themeLabel = THEMES.find((t) => t.id === game.theme)?.label ?? game.theme
+  // Le nom du cours contient déjà « · » (« Anglais CEDH · S7 ») : il va entre parenthèses, pas après un séparateur
+  const mode = modes.find((m) => m.id === game.theme)
+  const themeLabel = mode
+    ? `${mode.emoji ? `${mode.emoji} ` : ''}${mode.label} (${mode.course})`
+    : modesLoading ? '…' : game.theme
+  const reviewLink = review.items
+    ? counts.wrong > 0 ? `📖 Revoir mes fautes (${counts.wrong}) ↓` : '📖 Revoir les questions ↓'
+    : null
   const isLoss = verdict === 'lose'
   const margin = opp ? Math.abs(me.score - opp.score) : null
   const loseLine = margin === 1 ? 'À 1 point !' : 'Revanche ?'
@@ -126,7 +194,7 @@ export function Results() {
         <div aria-live="polite" className="mt-4">
           <h1
             className={`font-display text-hero font-bold animate-pop-in ${title.cls}`}
-            style={{ textShadow: title.shadow }}
+            style={{ textShadow: title.shadow, WebkitTextStroke: title.stroke }}
           >
             {title.text}
           </h1>
@@ -213,13 +281,14 @@ export function Results() {
 
                 <div className="flex shrink-0 flex-col items-center gap-1">
                   <span className="sr-only">Score : {p.score}</span>
-                  <span aria-hidden>
+                  <span aria-hidden className="flex flex-col items-center gap-1">
                     <AnimatedNumber
                       value={counting ? p.score : 0}
                       durationMs={COUNT_MS}
                       tick
-                      className={`text-score-xl ${SCORE_COLOR[tone]}`}
+                      className="text-score-xl text-ink"
                     />
+                    <span className={`h-1 w-8 rounded-full ${SCORE_BAR[tone]}`} />
                   </span>
                   <Stars score={p.score} total={total} delay={reduced ? 0 : STARS_DELAY_MS + i * 300} />
                 </div>
@@ -241,6 +310,75 @@ export function Results() {
           />
         </Card>
       )}
+
+      {/* Raccourcis : la révision (20 à 50 cartes) repousse le CTA principal loin sous le pli sur mobile.
+          Ancre vers la carte de révision + « Nouvelle partie » compact ; le primaire xl reste en bas. */}
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+        {reviewLink && (
+          <a
+            href="#revision"
+            onClick={() => sfx.tap()}
+            className="btn-3d focus-ring inline-flex h-12 items-center justify-center rounded-btn border-2 border-line bg-card px-5 font-body text-base font-black tracking-[.01em] text-ink no-underline select-none [--shc:var(--color-line-strong)]"
+          >
+            {reviewLink}
+          </a>
+        )}
+        <Button variant="secondary" size="md" onClick={newGame}>Nouvelle partie 🔁</Button>
+      </div>
+
+      {/* Révision */}
+      <section id="revision" className="mt-4 scroll-mt-4">
+        <Card padding="sm">
+          <h2 className="font-display text-[24px] font-bold leading-tight text-ink">📖 Revoir les questions</h2>
+
+          {review.error && (
+            <div className="mt-3 space-y-3">
+              <ErrorMsg>{review.error}</ErrorMsg>
+              <Button variant="secondary" size="md" onClick={retryReview}>Réessayer</Button>
+            </div>
+          )}
+
+          {!review.error && !review.items && (
+            <div className="mt-3 space-y-2" aria-busy>
+              <Skeleton className="h-5 w-48" />
+              <Skeleton className="h-14 w-full" />
+              <Skeleton className="h-14 w-full" />
+              <Skeleton className="h-14 w-full" />
+              <p className="text-center text-[13px] font-bold text-ink-soft">Chargement des questions…</p>
+            </div>
+          )}
+
+          {review.items && (
+            <>
+              {/* « sans réponse » = passée avec Espace ou jamais atteinte (l'API ne distingue pas) */}
+              <p className="mt-1 text-[15px] font-bold text-ink-soft">
+                <span className="whitespace-nowrap"><span aria-hidden>✅ </span>{plural(counts.correct, 'bonne', 'bonnes')}</span>
+                {' · '}
+                <span className="whitespace-nowrap"><span aria-hidden>❌ </span>{plural(counts.wrong, 'faute', 'fautes')}</span>
+                {' · '}
+                <span className="whitespace-nowrap"><span aria-hidden>⏭️ </span>{counts.unseen} sans réponse</span>
+                {counts.flagged > 0 && (
+                  <>
+                    {' · '}
+                    <span className="whitespace-nowrap text-ink"><span aria-hidden>⚠️ </span>{counts.flagged} à surveiller</span>
+                  </>
+                )}
+              </p>
+
+              <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Filtrer les questions">
+                <Chip active={filter === 'all'} disabled={false} onClick={() => setFilter('all')}>Tout</Chip>
+                <Chip active={filter === 'wrong'} disabled={counts.wrong === 0} onClick={() => setFilter('wrong')}>Fautes</Chip>
+                <Chip active={filter === 'unseen'} disabled={counts.unseen === 0} onClick={() => setFilter('unseen')}>Sans réponse</Chip>
+                <Chip active={filter === 'flagged'} disabled={counts.flagged === 0} onClick={() => setFilter('flagged')}>⚠️ À surveiller</Chip>
+              </div>
+
+              <div className="mt-4">
+                <ReviewList items={review.items} filter={filter} />
+              </div>
+            </>
+          )}
+        </Card>
+      </section>
 
       {/* Actions */}
       <div className="mt-6 space-y-3">

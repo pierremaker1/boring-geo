@@ -1,6 +1,9 @@
-# Globe Pop! — Spec de design exécutable (Boring Geo)
+# Globe Pop! — Spec de design exécutable (Boring Law)
 
-Version 1.0 · Lead design · À suivre à la lettre par 5 développeurs en parallèle.
+Version 1.1 · Lead design · À suivre à la lettre par 5 développeurs en parallèle.
+Changements 1.1 (ex-« Boring Geo ») : nom **Boring Law**, mascotte ⚖️, modes chargés depuis la table `modes` et groupés
+par cours (`useModes` + `ModePicker`, la constante `THEMES` n'existe plus), écran de **révision** après la partie
+(`ReviewList`, §6.5), sous-types du cours d'anglais juridique dans `subtype.ts`.
 Concept retenu par le jury : **Globe Pop!** (cartoon-arcade clair, boutons 3D, keycaps colorées), enrichi des greffes
 validées (arpège de série transposé, tick du timer qui monte, toasts d'événements, barres de progression segmentées face à
 face, marqueur ✓/✗ adverse, hauteurs réservées, accessibilité, sound.ts robuste, subtype FR, précision + barre de duel).
@@ -35,7 +38,11 @@ face, marqueur ✓/✗ adverse, hauteurs réservées, accessibilité, sound.ts r
 
 ## 1. Identité
 
-**Nom** : Globe Pop!  **Ambiance** : cour de récré Duolingo × plateau Kahoot. Fond bleu ciel pâle à pois, cartes
+**Produit** : Boring Law — « Révise ton cours à deux, contre la montre. Zéro ennui garanti. » Ton fun, étudiant, pas
+scolaire. Mascotte ⚖️ (réservée à `Mascot` et au favicon : les stickers du héros sont 📚 🎓 📜, le spinner des boutons ⏳).
+Les questions du cours de droit sont en anglais (anglais juridique) et ne se traduisent pas ; l'interface est en français.
+
+**Design system** : Globe Pop!  **Ambiance** : cour de récré Duolingo × plateau Kahoot. Fond bleu ciel pâle à pois, cartes
 blanches épaisses à grands arrondis, boutons 3D qui s'enfoncent avec un « pop », keycaps colorées 1-4, deux avatars-emoji
 (moi bleu, adversaire violet) qui se tirent la bourre sur des barres segmentées face à face, flamme de série, timer-anneau
 qui vire à l'orange puis au rouge en faisant tic-tac, confettis aux bons moments.
@@ -161,13 +168,13 @@ Ajouter dans `<head>` (une seule fois, avant le `<script>`) :
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet" />
 ```
 
-Titre : `<title>Boring Geo — Globe Pop!</title>`. Ne pas ajouter de favicon en chemin absolu.
+Titre : `<title>Boring Law</title>`. Ne pas ajouter de favicon en chemin absolu.
 
 ### 1.3 Rôles typographiques
 
 | Usage | Police | Taille / graisse |
 |---|---|---|
-| Titre héros (« Boring Geo », « Victoire ! ») | Fredoka 700 `font-display` | `text-hero`, `text-shadow: 0 4px 0 <couleur-dark>` |
+| Titre héros (« Boring Law », « Victoire ! ») | Fredoka 700 `font-display` | `text-hero`, `text-shadow: 0 4px 0 <couleur-dark>` (+ `-webkit-text-stroke 1.5px <couleur-dark>` sur Results) |
 | Titre de page (« Salon », « Terminé ! ») | Fredoka 700 | `text-title` (32 px) |
 | Code de partie (tuiles), chiffres des keycaps, « VS » | Fredoka 700 | 40 px / 18 px / 22 px |
 | Pseudos (Lobby / Results) | Fredoka 600 | 20 px, `truncate` |
@@ -370,7 +377,7 @@ primary `bg-green text-ink [--shc:var(--color-green-dark)]` ; blue `bg-blue text
 secondary `bg-card text-ink border-2 border-line [--shc:var(--color-line-strong)]` ;
 ghost `bg-transparent text-ink-soft hover:bg-card shadow-none` (pas de 3D) ;
 danger `bg-card text-red-dark border-2 border-red/40 [--shc:var(--color-red-soft)]`.
-Disabled : `bg-line text-line-strong` sans ombre. `loading` → icône 🌍 en `animate-spin` + `aria-busy`.
+Disabled : `bg-line text-line-strong` sans ombre. `loading` → icône ⏳ en `animate-spin` + `aria-busy`.
 `onClick` joue `sfx.tap()` (sauf `silent`) puis délègue. `onMouseDown={(e) => e.preventDefault()}` pour ne pas garder le
 focus (Espace ne doit pas réactiver un bouton cliqué). `type` par défaut `button`.
 
@@ -427,7 +434,7 @@ Même pseudo = même animal sur tous les écrans et pour les deux joueurs.
 ```ts
 export function Mascot(p: { mood: 'idle' | 'party' | 'sleep' | 'sad' | 'think'; size?: 64 | 96 })
 ```
-Bulle blanche ronde 3D (`bg-card`, ombre `0 6px 0 line`) avec 🌍 ; emoji d'humeur superposé bas-droite (party 🥳,
+Bulle blanche ronde 3D (`bg-card`, ombre `0 6px 0 line`) avec ⚖️ ; emoji d'humeur superposé bas-droite (party 🥳,
 sleep 😴, sad 😅, think 🤔, idle aucun). `animate-float` (`animate-bob` en sleep). `aria-hidden`.
 
 **`MuteToggle.tsx`**
@@ -504,12 +511,14 @@ clavier. `React.memo` par défaut (props primitives).
 
 **`FlagFrame.tsx`**
 ```ts
-export function FlagFrame(p: { src: string; alt?: string })
+export function FlagFrame(p: { src: string; alt?: string; compactOnShort?: boolean })
 ```
 Boîte `h-[140px] sm:h-[200px] w-full rounded-btn border-2 border-line bg-card overflow-hidden flex items-center
-justify-center`, damier discret (`repeating-conic-gradient` line/card 12 px) ; `<img>` `object-contain max-h-full`
+justify-center` (88 px sur écran ≤ 700 px de haut, sauf `compactOnShort={false}` : la révision est une liste
+scrollable), damier discret (`repeating-conic-gradient` line/card 12 px) ; `<img>` `object-contain max-h-full`
 `draggable={false}` opacity 0 → 1 (200 ms) au `onLoad` ; `Skeleton` tant que non chargée ; `onError` → 🏳️ + « image
-indisponible » 13 px ink-soft. `alt` défaut « Drapeau ».
+indisponible » 13 px ink-soft. `alt` défaut « Drapeau » (Game) ; la révision passe « Drapeau à identifier » ou
+« Illustration de la question » selon le sous-type.
 
 **`PopText.tsx`**
 ```ts
@@ -598,9 +607,14 @@ non rendus en reduced motion.
   `matchMedia('(prefers-reduced-motion: reduce)').matches` ; `disableForReducedMotion: true` en plus.
 - `src/lib/streak.ts` : clé `sessionStorage` **`boring-geo:streak:<code>`** = `{ streak: number; best: number }`.
   `loadStreak(code): { streak: number; best: number }` (défaut `{0, 0}`), `saveStreak(code, s): void`, try/catch partout.
-- `src/lib/subtype.ts` : `subtypeLabel(subtype: string): string` — map `capitale → CAPITALE`, `continent → CONTINENT`,
-  `drapeau → DRAPEAU`, `fleuve → FLEUVE`, `frontiere → FRONTIÈRE`, `montagne → MONTAGNE`, `ocean → OCÉAN`,
-  `superficie → SUPERFICIE`, sinon `subtype.toUpperCase()`.
+- `src/lib/subtype.ts` : `subtypeLabel(subtype: string): string` — libellés FR (majuscules accentuées) de tous les
+  sous-types : géo (`capitale → CAPITALE`, `drapeau → DRAPEAU`, `frontiere → FRONTIÈRE`…), histoire (`moyen-age → MOYEN
+  ÂGE`, `ww1 → 14-18`…) et anglais CEDH (`foundations → FONDAMENTAUX`, `article-6 → ART. 6 · PROCÈS ÉQUITABLE`,
+  `admissibility → RECEVABILITÉ`, `traps → PIÈGE`…), sinon `subtype.toUpperCase()`. Fichier partagé, ne pas modifier
+  sans l'ajouter à la table.
+- `src/hooks/useModes.ts` : `useModes(): { modes: Mode[]; loading; error; courses: { course, modes }[] }` — table
+  `modes` chargée une fois (cache module), groupée par cours dans l'ordre de `sort`. Pas de réessai intégré : le Lobby
+  remonte le sous-arbre qui porte le hook (`ModesScope key={modesTry}`) sur « Réessayer ».
 - `src/lib/records.ts` (**V2, optionnel**) : `localStorage` `boring-geo:records` = `{ games, wins, bestScore, bestStreak }` ;
   `loadRecords()`, `applyResult(gameId, { won, score, bestStreak }): { newRecord: boolean }` idempotent par `gameId`
   (`sessionStorage boring-geo:records:applied:<gameId>`).
@@ -687,8 +701,9 @@ barre de duel, badge « PARFAIT ! » si `score === question_count`, « Meilleure
 
 `<Page width="sm">` (blobs on).
 1. **Héros** (`mt-6 text-center`) : `Mascot mood="idle" size={96}` ; `h1` Fredoka `text-hero` : « Boring » en ink avec
-   une rature (`::after` 4 px `bg-red rotate-[-6deg]`) + « Geo » `text-blue` `text-shadow: 0 4px 0 blue-dark`, `h1`
-   incliné `-rotate-2` ; tagline Nunito 700 18 px ink-soft « Course de géo à deux, contre la montre. Zéro ennui garanti. »
+   une rature (`::after` 4 px `bg-red rotate-[-6deg]`) + « Law » `text-blue` `text-shadow: 0 4px 0 blue-dark`, `h1`
+   incliné `-rotate-2` ; tagline Nunito 700 18 px ink-soft « Révise ton cours à deux, contre la montre. Zéro ennui garanti. »
+   Stickers 📚 🎓 📜 (≥ 480 px et ≥ 701 px de haut) ; la création envoie `DEFAULT_MODE` (`src/types.ts`).
 2. **Card white pop** (`space-y-5`) :
    - label « Ton pseudo » `text-label uppercase` ; `Input leading={<Avatar name={nick} tone="me" size={56} key={avatarFor(nick)} />}`
      (l'avatar `pop-in` à chaque changement d'emoji), `placeholder="ex. Pierre"`, `maxLength={20}`, `autoFocus`, `value/onChange` inchangés.
@@ -710,8 +725,10 @@ Sons : `tap` sur les boutons (automatique). États : `busy` → bouton loading ;
 ### 6.2 Lobby (`src/pages/Lobby.tsx`) — logique inchangée (`act`, `setSettings`, `copyCode`, `leave`, `players`, `isHost`)
 
 `<Page width="md">`.
-1. **En-tête** `flex justify-between mb-5` : « Salon » Fredoka `text-title` + chip `bg-blue-soft text-navy text-label`
-   avec le label du thème (`THEMES.find(t => t.id === game.theme)?.label`) ; `Button variant="danger" size="md"` « Quitter » → `leave`.
+1. **En-tête** `flex justify-between mb-5` : « Salon » Fredoka `text-title` + chip `bg-blue-soft text-ink text-label`
+   (casse normale, pas d'uppercase : « 🧠 Théorie et principes » doit tenir à 375 px) « {emoji} {label} » du mode actif
+   sur une ligne et le cours en 11 px dessous (`findMode(courses, game.theme)`, id brut si inconnu, rien pendant le
+   chargement) ; `Button variant="danger" size="md"` « Quitter » → `leave`.
 2. **Carte code** `Card tone="blue" pop` centrée : label « Code de la partie » ; `CodeTiles code={game?.code ?? session.code}
    onCopy={copyCode} copied={copied}` ; sous-texte 14 px ink-soft « Clique pour copier · partage-le à ton adversaire »,
    remplacé par « ✓ Copié ! » `text-green-dark` quand `copied` ; quand `copied` passe à `true` → `celebrate('mini', tuiles)`.
@@ -720,11 +737,20 @@ Sons : `tap` sur les boutons (automatique). États : `busy` → bouton loading ;
    absolu centré (`h-14 w-14 rounded-full bg-yellow text-navy font-display font-bold text-[22px] -rotate-6`, ombre
    `0 4px 0 yellow-dark`). `usePrevious(state?.opponent)` : `null → objet` → toast « 🎉 {nick} a rejoint ! » (green, key
    `join`) + `sfx.join()`. L'ordre `[me, opponent]` du code est conservé.
-4. **Réglages** (`if (game)`) `Card white` : titre « Réglages » Nunito 900 18 px + chip `bg-yellow-soft text-yellow-dark`
-   « définis par l'hôte 👑 » si `!isHost`. Trois `Setting` (label `text-label uppercase w-24`, `flex-wrap gap-2`) :
-   Thème → `THEMES`, Questions → `COUNTS`, Durée → `DURATIONS` (`d / 60` min). `Chip` partagé (§4.1) avec **les mêmes
-   `onClick` → `setSettings(...)`** et `disabled={!isHost || busy}`. Les `Setting`/`Chip` locaux sont supprimés (Setting
-   reste une fonction locale de 6 lignes ; Chip vient de `ui.tsx`).
+4. **Réglages** (`if (game)`) `Card white` : titre « Réglages » Nunito 900 18 px + chip `bg-yellow-soft text-ink`
+   « définis par l'hôte 👑 » si `!isHost`. Puis :
+   - **Cours & mode** → `ModePicker` (`src/components/ModePicker.tsx`) alimenté par `useModes()` : un groupe par cours
+     (chip de cours `bg-blue-soft text-ink` + filet pointillé, puis les modes en `Chip` « {emoji} {label} », `title` =
+     description) ; la description du mode actif s'affiche dans un encart `bg-blue-soft` juste sous son groupe, préfixée
+     de « {emoji} {label} : ». Skeleton pendant le chargement ; erreur → `ErrorMsg` + « Réessayer » (`onRetry`).
+     `onSelect(m)` → `setSettings(wanted, duration, m.id)`.
+   - Questions → `COUNTS` (10/20/30/50), Durée → `DURATIONS` (`d / 60` min). `Chip` partagé (§4.1) avec **les mêmes
+     `onClick` → `setSettings(...)`** et `disabled={!isHost}` (+ `busy` pendant la requête). Le serveur ramène
+     `question_count` au nombre réel de questions du mode : le Lobby garde le nombre **voulu** par l'hôte (`wantedCount`,
+     état local mis à jour uniquement par les chips Questions) et le renvoie à chaque réglage ; si la valeur serveur est
+     hors grille et qu'aucun choix local n'existe, une chip active « {n} (max) » l'affiche. Hint hôte 12 px : « Ce mode
+     ne contient que N questions : la partie s'arrêtera là. » quand plafonné.
+   Les `Setting`/`Chip` locaux sont supprimés (Setting reste une fonction locale de 6 lignes ; Chip vient de `ui.tsx`).
 5. `<ErrorMsg>{actionError ?? error}</ErrorMsg>`.
 6. **Action** : hôte → `Button variant="primary" size="xl" disabled={busy || players.length < 2} onClick={() => act(() =>
    api.startGame(session.token))}` ; libellé « En attente de l'adversaire… » (+ `<Dots/>`) si `< 2`, sinon « Démarrer la
@@ -789,10 +815,12 @@ drapeau, seul le pied peut nécessiter ≤ 160 px de scroll (Espace reste utilis
 
 `<Page width="sm">`.
 1. **Héros** (`mt-8 text-center`) : `Mascot mood={tie ? 'idle' : iWon ? 'party' : 'sad'} size={96}` ; titre Fredoka
-   `text-hero animate-pop-in` : « Victoire ! » `text-green` (`text-shadow 0 4px 0 green-dark`) / « Égalité ! »
-   `text-yellow` (yellow-dark) / « Pas cette fois… » `text-blue` (blue-dark) ; sous-titre ink-soft
-   « {question_count} questions · {duration_seconds / 60} min · {label du thème} » ; défaite : ligne « À 1 point ! » si
-   `|me.score − opp.score| === 1`, sinon « Revanche ? ». Célébration + son une fois (§5.8).
+   `text-hero animate-pop-in` : « Victoire ! » `text-green` (`text-shadow 0 4px 0 green-dark` + `-webkit-text-stroke
+   1.5px green-dark`) / « Égalité ! » `text-ink` (ombre `yellow`, le jaune seul ≈ 1,4:1 sur le canvas) / « Pas cette
+   fois… » `text-blue` (blue-dark, contour blue-dark) ; sous-titre ink-soft
+   « {question_count} questions · {duration_seconds / 60} min · {emoji} {label du mode} ({cours}) » (le cours entre
+   parenthèses : son nom contient déjà « · ») ; défaite : ligne « À 1 point ! » si `|me.score − opp.score| === 1`, sinon
+   « Revanche ? ». Célébration + son une fois (§5.8).
 2. **Podium** `Card white padding="sm" className="space-y-3 mt-6"` : pour chaque `p` de `ranked` (ordre conservé, index i) :
    ligne `rounded-btn p-3 flex items-center gap-3` — gagnant (`p.id === winnerId`) : `bg-green-soft border-2 border-gold`,
    ombre `0 6px 0 yellow-dark`, `scale-[1.02]`, 🏆 ; perdant : `bg-card border-2 border-line` ; égalité : les deux
@@ -803,16 +831,55 @@ drapeau, seul le pied peut nécessiter ≤ 160 px de scroll (Espace reste utilis
    `Stars score total delay={400 + i * 300}` ; badges : « ✔ Terminé » (finished_at, `bg-green-soft`), « PARFAIT ! »
    (`score === question_count`, `bg-yellow text-ink font-display -rotate-3 animate-pop-in`) ; pour ma ligne, si
    `loadStreak(code).best ≥ 2` : « 🔥 Meilleure série : ×{best} » `bg-orange/15 text-orange-dark`. À droite :
-   `AnimatedNumber value={p.score} tick className="text-score-xl"` en `text-blue` (moi) / `text-purple` (lui),
+   `AnimatedNumber value={p.score} tick className="text-score-xl text-ink"` (ink sur les lignes -soft : ≥ 13:1) souligné
+   d'une barre 4 px `bg-blue` (moi) / `bg-purple` (lui) — la couleur joueur ne va jamais sur le chiffre lui-même ;
    les lignes montent en cascade (`animate-pop-in`, délai `i × 120 ms`).
 3. **Duel** (`if (opp)`) : `ScoreCompare me={me.score} opp={opp.score} meName oppName delayMs={900}` dans une
    `Card padding="sm" className="mt-4 hide-short"` ; la classe `hide-short` (fondations, index.css) la masque sous 600 px
-   de hauteur d'écran pour que le bouton « Nouvelle partie » reste visible sans scroll.
-4. **Actions** `mt-6 space-y-3` : `Button variant="primary" size="xl" onClick={newGame}` « Nouvelle partie 🔁 » ; note
+   de hauteur d'écran.
+4. **Raccourcis** (`mt-4`, centrés) : lien d'ancre `<a href="#revision">` habillé en bouton secondary « 📖 Revoir mes
+   fautes (N) ↓ » (ou « 📖 Revoir les questions ↓ » sans faute) dès que la révision est chargée, et `Button
+   variant="secondary" size="md"` « Nouvelle partie 🔁 » compact — la révision peut faire 50 cartes, le CTA principal
+   ne doit pas être le seul moyen de relancer.
+5. **Révision** : `<section id="revision" className="mt-4 scroll-mt-4">` → `Card padding="sm"`, titre Fredoka 24 px
+   « 📖 Revoir les questions », voir §6.5.
+6. **Actions** `mt-6 space-y-3` : `Button variant="primary" size="xl" onClick={newGame}` « Nouvelle partie 🔁 » ; note
    12 px ink-soft centrée « Même adversaire ? Crée une partie et renvoie-lui le code. » puis « Le score est calculé par le
-   serveur. » `text-line-strong`. **V2** : `navigator.share` → `Button variant="ghost"` « Partager le score ».
-5. Chargement : `Mascot think` + Skeleton + « Chargement… ». Reduced motion : titre sans pop, count-up instantané, pas de
+   serveur. ». **V2** : `navigator.share` → `Button variant="ghost"` « Partager le score ».
+7. Chargement : `Mascot think` + Skeleton + « Chargement… ». Reduced motion : titre sans pop, count-up instantané, pas de
    confettis, étoiles sans cascade.
+
+### 6.5 Révision (`src/components/ReviewList.tsx`, rendu dans Results)
+
+Données : `api.getReview(token)` → `ReviewItem[]` (toutes les questions dans l'ordre joué : `chosen_index` null = sans
+réponse, `is_correct`, `explanation` (null en Culture G), `flag` = écart cours / droit positif, `disputed` = corrigé
+discutable, `difficulty` 1-3, `subtype`, `source`). Ne marche que `game.status === 'finished'` : `game_not_finished` →
+on garde le squelette et on retente au prochain état ; autre erreur → `ErrorMsg` + « Réessayer ».
+
+1. **Compteurs** 15 px ink-soft « ✅ N bonnes · ❌ N fautes · ⏭️ N sans réponse · ⚠️ N à surveiller » (le dernier seulement
+   si > 0, en ink). **Filtres** `Chip` : Tout / Fautes / Sans réponse / ⚠️ À surveiller (`ReviewFilter` `'all' | 'wrong'
+   | 'unseen' | 'flagged'`, chip désactivée à 0 ; défaut « Fautes » s'il y en a). « Sans réponse » regroupe passées avec
+   Espace et jamais atteintes (l'API ne distingue pas) — jamais « non vue ».
+2. **Liste** : « N questions » + `Button variant="secondary"` « Tout déplier / Tout replier » (sur les cartes visibles).
+   Numérotation Q1… sur la liste complète, filtre appliqué ensuite ; état déplié conservé entre filtres. **Dépliées
+   d'emblée** : fautes et sans réponse, ou toutes si la partie fait ≤ 10 questions.
+3. **Carte** (`<li>` `rounded-btn border-2 bg-card`, fond blanc pour les trois statuts) : bordure pleine `border-green`
+   (bonne) / `border-red` (faute) / `border-line-strong` (sans réponse) + icône ✅ / ❌ / ⏭️ 22 px. En-tête = `<button
+   aria-expanded>` : « Q{n} » + chips 12 px (sous-type `subtypeLabel`, et **visibles carte repliée** : « ⚠️ Cours ≠ droit
+   positif » `bg-yellow-soft border-yellow text-ink`, « 🤔 Discutable » `bg-orange-soft border-orange text-ink`) + étoiles
+   de difficulté ; **prompt complet** 16 px ink, jamais d'ellipse (c'est le cœur de la révision) ; chevron ▾ (rotate-180).
+4. **Corps déplié** : `FlagFrame compactOnShort={false}` si image ; les 4 choix (`Keycap` du numéro, 16 px ink) —
+   bonne réponse `bg-green-soft border-green-dark` + pastille ronde 24 px `bg-green text-ink` « ✓ » + libellé
+   « BONNE RÉPONSE » 12 px uppercase ink (visible, pas seulement sr-only) ; ma réponse fausse `bg-red-soft border-red` +
+   pastille `bg-red text-white` « ✗ » 18 px gras (règle 4) + « TA RÉPONSE » ; chip « Toi » `bg-blue text-ink` sur mon
+   choix ; les marqueurs flottent à droite (le texte long reprend toute la largeur dès la 2ᵉ ligne). Sans réponse : ligne
+   « Tu n'as pas répondu à cette question (passée ou jamais atteinte). ». Puis les **Notes** (`rounded-btn border-2 p-3`,
+   titre 14 px uppercase ink, corps 16 px `leading-relaxed` ink, texte ink sur -soft) dans cet ordre : ⚠️ « Attention :
+   le cours ≠ le droit positif » `bg-yellow-soft border-yellow` + seconde ligne « Pour l'examen, retiens la version du
+   cours. » (avant l'explication : c'est ce qu'il faut retenir) ; 💡 « Pourquoi » `bg-blue-soft border-blue/40`
+   (absente en Culture G) ; 🤔 « Corrigé discutable » `bg-orange-soft border-orange`. Source 13 px ink-soft.
+5. Sons : `sfx.tap()` à chaque pli/dépli. Accessibilité : `sr-only` « Question n, faute. Écart entre le cours et le droit
+   positif. » dans l'en-tête, « Bonne réponse, ta réponse. » / « Ta réponse, fausse. » dans les choix, `aria-controls`.
 
 ---
 

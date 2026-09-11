@@ -1,9 +1,9 @@
-// Pousse data/questions/<theme>.json en base via la RPC temporaire admin_seed_questions.
-// La RPC est créée juste avant (via le MCP Supabase / SQL editor) et supprimée juste après :
-//   create function admin_seed_questions(p_secret text, p_theme text, p_rows jsonb) ... (voir README)
+// Pousse une banque de questions en base via la RPC temporaire admin_seed_questions.
+// La RPC est créée juste avant (MCP Supabase / SQL editor) et supprimée juste après, voir README.
 // Usage : SEED_SECRET=... node scripts/seed-remote.mjs geo
 import { readFileSync } from 'node:fs'
 import { createClient } from '@supabase/supabase-js'
+import { loadQuestions } from './lib/load-questions.mjs'
 
 const env = Object.fromEntries(
   readFileSync('.env.local', 'utf8')
@@ -12,19 +12,7 @@ const env = Object.fromEntries(
     .map((l) => l.split('=').map((s) => s.trim())),
 )
 const theme = process.argv[2] ?? 'geo'
-const questions = JSON.parse(readFileSync(`data/questions/${theme}.json`, 'utf8'))
-
-// même mélange déterministe que gen-seed-sql.mjs
-let seed = 42
-const rand = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32)
-const rows = questions.map((q) => {
-  const idx = [0, 1, 2, 3]
-  for (let i = idx.length - 1; i > 0; i--) {
-    const j = Math.floor(rand() * (i + 1))
-    ;[idx[i], idx[j]] = [idx[j], idx[i]]
-  }
-  return [q.subtype, q.prompt, idx.map((i) => q.choices[i]), idx.indexOf(q.answer), q.iso ?? null]
-})
+const { rows, path } = loadQuestions(theme)
 
 const sb = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY)
 const { data, error } = await sb.rpc('admin_seed_questions', {
@@ -36,4 +24,4 @@ if (error) {
   console.error(error)
   process.exit(1)
 }
-console.log(`${data} questions insérées (${theme})`)
+console.log(`${data} questions insérées (${theme}, source ${path})`)

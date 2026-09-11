@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { AnswerResult, GameState, Session } from '../types'
+import type { AnswerResult, GameState, Mode, ReviewItem, Session } from '../types'
 
 // Messages d'erreur lisibles pour les exceptions levées côté SQL
 const ERRORS: Record<string, string> = {
@@ -12,7 +12,8 @@ const ERRORS: Record<string, string> = {
   time_over: 'Temps écoulé !',
   game_not_playing: "La partie n'est pas en cours.",
   stale_question: 'Question déjà traitée.',
-  no_questions_for_theme: 'Pas de questions pour ce thème.',
+  no_questions_for_theme: 'Pas de questions pour ce mode.',
+  game_not_finished: "La partie n'est pas terminée.",
 }
 
 export class ApiError extends Error {
@@ -57,4 +58,14 @@ export const api = {
   passQuestion: (token: string) => rpc<void>('pass_question', { p_token: token }),
 
   endGameIfExpired: (gameId: string) => rpc<void>('end_game_if_expired', { p_game_id: gameId }),
+
+  // Révision : toutes les questions de la partie (finie) avec la réponse du joueur et l'explication
+  getReview: (token: string) => rpc<ReviewItem[]>('get_review', { p_token: token }),
+
+  // Modes disponibles, triés (table `modes`, lecture publique)
+  listModes: async (): Promise<Mode[]> => {
+    const { data, error } = await supabase.from('modes').select('*').order('sort')
+    if (error) throw new ApiError(error.message)
+    return data as Mode[]
+  },
 }

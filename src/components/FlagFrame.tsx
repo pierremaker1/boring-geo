@@ -3,9 +3,14 @@ import { Skeleton } from './ui'
 
 type Status = 'loading' | 'loaded' | 'error'
 
-// Cadre de hauteur fixe (140 / 200 px, 88 px sur écran court ≤ 700 px) pour l'image de drapeau :
-// aucun saut de layout, skeleton pendant le chargement.
-export function FlagFrame({ src, alt = 'Drapeau' }: { src: string; alt?: string }) {
+// Cadre de hauteur fixe (140 / 200 px, 88 px sur écran court ≤ 700 px) pour l'image d'une question :
+// aucun saut de layout, skeleton pendant le chargement. `compactOnShort={false}` désactive la variante
+// 88 px (liste scrollable de la révision, où la contrainte « tenir sans scroll » n'a pas de sens).
+export function FlagFrame({ src, alt = 'Drapeau', compactOnShort = true }: {
+  src: string
+  alt?: string
+  compactOnShort?: boolean
+}) {
   const [state, setState] = useState<{ src: string; status: Status }>({ src, status: 'loading' })
   const imgRef = useRef<HTMLImageElement | null>(null)
 
@@ -23,7 +28,7 @@ export function FlagFrame({ src, alt = 'Drapeau' }: { src: string; alt?: string 
   const status = state.src === src ? state.status : 'loading'
 
   return (
-    <div className="checker-bg relative flex h-[140px] w-full items-center justify-center overflow-hidden rounded-btn border-2 border-line bg-card sm:h-[200px] [@media(max-height:700px)]:h-[88px]">
+    <div className={`checker-bg relative flex h-[140px] w-full items-center justify-center overflow-hidden rounded-btn border-2 border-line bg-card sm:h-[200px] ${compactOnShort ? '[@media(max-height:700px)]:h-[88px]' : ''}`}>
       {status === 'loading' && <Skeleton className="absolute inset-2" />}
       {status === 'error' ? (
         <div className="flex flex-col items-center gap-1 text-[13px] font-extrabold text-ink-soft">
