@@ -6,7 +6,7 @@ import { Results } from './pages/Results'
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/lobby/:code" element={<Lobby />} />
