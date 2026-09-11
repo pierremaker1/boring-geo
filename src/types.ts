@@ -51,6 +51,9 @@ export interface AnswerResult {
   correct_index: number
 }
 
-export const THEMES: { id: string; label: string }[] = [
-  { id: 'geo', label: 'Géographie' },
+// Un mode = un thème entier ("geo") ou un sous-type ("geo:drapeau"), filtré côté serveur
+export const THEMES: { id: string; label: string; emoji: string; description: string }[] = [
+  { id: 'geo', label: 'Géographie', emoji: '🌍', description: 'Capitales, drapeaux, fleuves, montagnes…' },
+  { id: 'geo:drapeau', label: 'Drapeaux', emoji: '🏁', description: '100 % drapeaux, à reconnaître au premier coup d’œil' },
+  { id: 'histoire', label: 'Histoire', emoji: '🏛️', description: 'De l’Antiquité à nos jours' },
 ]

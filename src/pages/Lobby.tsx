@@ -1,10 +1,17 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { clearSession } from '../lib/session'
+import { celebrate } from '../lib/confetti'
+import { sfx } from '../lib/sound'
+import { showToast } from '../lib/toast'
 import { useGame } from '../hooks/useGame'
 import { useSession } from '../hooks/useSession'
-import { Button, Card, ErrorMsg, Page } from '../components/ui'
+import { usePrevious } from '../hooks/usePrevious'
+import { Button, Card, Chip, Dots, ErrorMsg, Page, Skeleton } from '../components/ui'
+import { CodeTiles } from '../components/CodeTiles'
+import { Mascot } from '../components/Mascot'
+import { PlayerCard } from '../components/PlayerCard'
 import { THEMES } from '../types'
 
 const COUNTS = [10, 20, 30, 50]
@@ -17,6 +24,8 @@ export function Lobby() {
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [copyError, setCopyError] = useState<string | null>(null)
+  const tilesRef = useRef<HTMLDivElement>(null)
 
   const game = state?.game
   const isHost = !!state && state.me.id === game?.host_player_id
@@ -25,6 +34,21 @@ export function Lobby() {
     if (game?.status === 'playing') navigate(`/game/${game.code}`, { replace: true })
     if (game?.status === 'finished') navigate(`/results/${game.code}`, { replace: true })
   }, [game?.status, game?.code, navigate])
+
+  // Arrivée de l'adversaire : null → objet (jamais au premier chargement) → toast + « ta-da »
+  const opponent = state?.opponent
+  const prevOpponent = usePrevious(opponent)
+  useEffect(() => {
+    if (prevOpponent === null && opponent) {
+      showToast({ text: `🎉 ${opponent.nickname} a rejoint !`, tone: 'green', key: 'join' })
+      sfx.join()
+    }
+  }, [prevOpponent, opponent])
+
+  // Code copié → mini confettis depuis les tuiles
+  useEffect(() => {
+    if (copied) celebrate('mini', tilesRef.current ?? undefined)
+  }, [copied])
 
   if (!session) return null
 
@@ -39,122 +63,198 @@ export function Lobby() {
   const setSettings = (count: number, duration: number, theme: string) =>
     act(() => api.updateSettings(session.token, count, duration, theme))
 
+  // Le son « copié » n'est joué qu'une fois la copie réellement réussie ; sinon on le dit (contexte non
+  // sécurisé, permission refusée…) au lieu d'avaler l'erreur en silence.
   const copyCode = async () => {
     try {
       await navigator.clipboard.writeText(game?.code ?? '')
+      setCopyError(null)
       setCopied(true)
+      sfx.copy()
       setTimeout(() => setCopied(false), 1500)
-    } catch { /* ignore */ }
+    } catch {
+      setCopyError('Copie impossible — note le code à la main.')
+    }
   }
 
   const leave = () => { clearSession(); navigate('/') }
 
   const players = state ? [state.me, state.opponent].filter((p) => p !== null) : []
+  const themeInfo = game ? THEMES.find((t) => t.id === game.theme) : undefined
+  const themeLabel = themeInfo?.label
+  const themeDescription = themeInfo?.description
+  const ready = players.length >= 2
 
   return (
-    <Page>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-black">Salon</h1>
-        <Button variant="ghost" onClick={leave}>Quitter</Button>
-      </div>
-
-      <Card className="text-center mb-4">
-        <p className="text-sm text-slate-500">Code de la partie</p>
-        <button onClick={copyCode} className="mt-1 font-mono text-5xl font-black tracking-[0.3em] hover:text-slate-600" title="Copier">
-          {game?.code ?? session.code}
-        </button>
-        <p className="mt-2 text-xs text-slate-400">{copied ? 'Copié !' : 'Clique pour copier · partage-le à ton adversaire'}</p>
-      </Card>
-
-      <Card className="mb-4">
-        <h2 className="font-semibold mb-3">Joueurs</h2>
-        <ul className="space-y-2">
-          {players.map((p) => (
-            <li key={p.id} className="flex items-center gap-3 rounded-lg bg-slate-50 px-3 py-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              <span className="font-medium">{p.nickname}</span>
-              {p.id === game?.host_player_id && <span className="text-xs text-slate-400">hôte</span>}
-              {p.id === state?.me.id && <span className="text-xs text-slate-400">(toi)</span>}
-            </li>
-          ))}
-          {players.length < 2 && (
-            <li className="flex items-center gap-3 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-slate-400">
-              <span className="h-2.5 w-2.5 rounded-full bg-slate-300 animate-pulse" />
-              En attente d&apos;un adversaire…
-            </li>
+    <Page width="md">
+      {/* En-tête */}
+      <header className="mb-5 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+          <h1 className="font-display text-title font-bold text-ink">Salon</h1>
+          {themeLabel && (
+            <span className="rounded-chip bg-blue-soft px-3 py-1 text-label font-extrabold uppercase tracking-[.08em] text-navy">
+              {themeLabel}
+            </span>
           )}
-        </ul>
+        </div>
+        <Button variant="danger" size="md" onClick={leave}>Quitter</Button>
+      </header>
+
+      {/* Carte code */}
+      <Card tone="blue" pop className="mb-4 text-center">
+        <p className="text-label font-extrabold uppercase tracking-[.08em] text-ink-soft">Code de la partie</p>
+        <div ref={tilesRef} className="mt-3 flex justify-center">
+          <CodeTiles code={game?.code ?? session.code} onCopy={copyCode} copied={copied} />
+        </div>
+        <p className="mt-3 min-h-[1.5em] text-sm font-bold" aria-live="polite">
+          {copied
+            ? <span className="rounded-chip border-2 border-green bg-green-soft px-2.5 py-0.5 text-ink">✓ Copié !</span>
+            : <span className="text-ink-soft">Clique pour copier · partage-le à ton adversaire</span>}
+        </p>
+        {copyError && (
+          <div className="mt-3 text-left">
+            <ErrorMsg>{copyError}</ErrorMsg>
+          </div>
+        )}
       </Card>
 
-      {game && (
-        <Card className="mb-4 space-y-4">
-          <h2 className="font-semibold">
-            Réglages {!isHost && <span className="text-xs font-normal text-slate-400">(définis par l&apos;hôte)</span>}
-          </h2>
+      {!state ? (
+        <Loading />
+      ) : (
+        <>
+          {/* Arène VS */}
+          <section aria-label="Joueurs" className="mb-4">
+            <div className="mb-2 flex items-center justify-between px-1">
+              <p className="text-label font-extrabold uppercase tracking-[.08em] text-ink-soft">Joueurs</p>
+              <span
+                key={players.length}
+                className={`animate-pop-in rounded-chip border-2 px-2.5 py-0.5 text-[12px] font-black ${ready ? 'border-green bg-green-soft text-ink' : 'border-line-strong bg-line text-ink-soft'}`}
+              >
+                {players.length}/2
+              </span>
+            </div>
+            <div className="relative grid grid-cols-1 gap-4 min-[380px]:grid-cols-2">
+              <PlayerCard
+                player={state.me}
+                tone="me"
+                isHost={state.me.id === game?.host_player_id}
+                isMe
+              />
+              <PlayerCard
+                player={state.opponent}
+                tone="opp"
+                isHost={!!state.opponent && state.opponent.id === game?.host_player_id}
+                isMe={false}
+              />
+              <span
+                aria-hidden
+                className="pointer-events-none absolute left-1/2 top-1/2 z-10 inline-flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 -rotate-6 items-center justify-center rounded-full bg-yellow font-display text-[22px] font-bold leading-none text-navy shadow-[0_4px_0_0_var(--color-yellow-dark)] select-none"
+              >
+                VS
+              </span>
+            </div>
+          </section>
 
-          <Setting label="Thème">
-            {THEMES.map((t) => (
-              <Chip key={t.id} active={game.theme === t.id} disabled={!isHost || busy}
-                onClick={() => setSettings(game.question_count, game.duration_seconds, t.id)}>
-                {t.label}
-              </Chip>
-            ))}
-          </Setting>
+          {/* Réglages */}
+          {game && (
+            <Card className="mb-4 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-[18px] font-black text-ink">Réglages</h2>
+                {!isHost && (
+                  <span className="rounded-chip border-2 border-yellow bg-yellow-soft px-3 py-0.5 text-[12px] font-black text-ink">
+                    définis par l&apos;hôte 👑
+                  </span>
+                )}
+              </div>
 
-          <Setting label="Questions">
-            {COUNTS.map((n) => (
-              <Chip key={n} active={game.question_count === n} disabled={!isHost || busy}
-                onClick={() => setSettings(n, game.duration_seconds, game.theme)}>
-                {n}
-              </Chip>
-            ))}
-          </Setting>
+              <Setting label="Mode">
+                {THEMES.map((t) => (
+                  <Chip key={t.id} active={game.theme === t.id} disabled={!isHost} busy={busy}
+                    onClick={() => setSettings(game.question_count, game.duration_seconds, t.id)}>
+                    {t.emoji} {t.label}
+                  </Chip>
+                ))}
+              </Setting>
+              {themeDescription && (
+                <p className="-mt-2 text-sm font-bold text-ink-soft sm:pl-24">{themeDescription}</p>
+              )}
 
-          <Setting label="Durée">
-            {DURATIONS.map((d) => (
-              <Chip key={d} active={game.duration_seconds === d} disabled={!isHost || busy}
-                onClick={() => setSettings(game.question_count, d, game.theme)}>
-                {d / 60} min
-              </Chip>
-            ))}
-          </Setting>
-        </Card>
+              <Setting label="Questions">
+                {COUNTS.map((n) => (
+                  <Chip key={n} active={game.question_count === n} disabled={!isHost} busy={busy}
+                    onClick={() => setSettings(n, game.duration_seconds, game.theme)}>
+                    {n}
+                  </Chip>
+                ))}
+              </Setting>
+
+              <Setting label="Durée">
+                {DURATIONS.map((d) => (
+                  <Chip key={d} active={game.duration_seconds === d} disabled={!isHost} busy={busy}
+                    onClick={() => setSettings(game.question_count, d, game.theme)}>
+                    {d / 60} min
+                  </Chip>
+                ))}
+              </Setting>
+            </Card>
+          )}
+        </>
       )}
 
-      <ErrorMsg>{actionError ?? error}</ErrorMsg>
+      <div className="mb-4 empty:hidden">
+        <ErrorMsg>{actionError ?? error}</ErrorMsg>
+      </div>
 
-      {isHost ? (
-        <Button className="w-full text-lg mt-4" disabled={busy || players.length < 2}
-          onClick={() => act(() => api.startGame(session.token))}>
-          {players.length < 2 ? 'En attente de l’adversaire…' : 'Démarrer la course'}
-        </Button>
+      {/* Action — l'attente se lit hors du bouton (un bouton désactivé n'est pas un message) */}
+      {!state ? null : isHost ? (
+        <div className="space-y-3">
+          {players.length < 2 && (
+            <p className="text-center text-base font-extrabold text-ink-soft" role="status">
+              En attente de l&apos;adversaire<Dots />
+            </p>
+          )}
+          <Button
+            variant="primary"
+            size="xl"
+            className={ready && !busy ? 'animate-pulse-glow' : ''}
+            disabled={busy || players.length < 2}
+            onClick={() => act(() => api.startGame(session.token))}
+          >
+            Démarrer la course 🏁
+          </Button>
+        </div>
       ) : (
-        <p className="mt-4 text-center text-slate-500">En attente que l&apos;hôte lance la partie…</p>
+        <Card tone="yellow" className="flex flex-col items-center gap-3 text-center">
+          <Mascot mood="sleep" size={64} />
+          <p className="text-[17px] font-extrabold text-ink" role="status">
+            L&apos;hôte lance la partie dans un instant<Dots />
+          </p>
+        </Card>
       )}
     </Page>
   )
 }
 
+// Ligne de réglage : label uppercase + chips (colonne sous 640 px, ligne au-delà)
 function Setting({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="w-24 text-sm text-slate-500">{label}</span>
-      {children}
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <span className="w-24 shrink-0 text-label font-extrabold uppercase tracking-[.08em] text-ink-soft">{label}</span>
+      <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   )
 }
 
-function Chip({ active, disabled, onClick, children }: {
-  active: boolean; disabled: boolean; onClick: () => void; children: ReactNode
-}) {
+// Squelette de l'arène et des réglages pendant le chargement de l'état
+function Loading() {
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`rounded-full px-3 py-1 text-sm font-medium ring-1 transition disabled:cursor-default
-        ${active ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white text-slate-700 ring-slate-300 hover:bg-slate-100'}`}
-    >
-      {children}
-    </button>
+    <div className="mb-4 space-y-4" aria-busy="true">
+      <div className="grid grid-cols-1 gap-4 min-[380px]:grid-cols-2">
+        <Skeleton className="h-[176px]" />
+        <Skeleton className="h-[176px]" />
+      </div>
+      <Skeleton className="h-40" />
+      <p className="text-center text-sm font-bold text-ink-soft" role="status">Chargement<Dots /></p>
+    </div>
   )
 }

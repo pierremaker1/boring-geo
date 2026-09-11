@@ -1,10 +1,314 @@
 @import "tailwindcss";
 
+/* ============================================================
+   Globe Pop! — tokens de design (docs/design-spec.md §1.1)
+   ============================================================ */
+@theme {
+  /* Fonds */
+  --color-canvas: #EEF5FF;
+  --color-canvas-dots: #C9D4EA;
+  --color-card: #FFFFFF;
+  --color-line: #E3E8F4;
+  --color-line-strong: #B9C3DD;
+  /* Texte */
+  --color-ink: #1F2440;
+  --color-ink-soft: #5D6480;
+  --color-navy: #235390;
+  /* Sémantiques */
+  --color-green: #58CC02;
+  --color-green-dark: #46A302;
+  --color-green-soft: #D7F8C1;
+  --color-blue: #1CB0F6;
+  --color-blue-dark: #1899D6;
+  --color-blue-soft: #DDF4FF;
+  --color-purple: #CE82FF;
+  --color-purple-dark: #A560E8;
+  --color-purple-soft: #F1E3FF;
+  --color-red: #FF4B4B;
+  --color-red-dark: #D63A3A;
+  --color-red-soft: #FFE1E1;
+  --color-yellow: #FFC800;
+  --color-yellow-dark: #E5A800;
+  --color-yellow-soft: #FFF4C2;
+  --color-orange: #FF9600;
+  --color-orange-dark: #E07F00;
+  --color-orange-soft: #FFE7C2;
+  --color-gold: #FFD43B;
+  /* Alias sémantiques */
+  --color-bg: #EEF5FF;
+  --color-surface: #FFFFFF;
+  --color-primary: #58CC02;
+  --color-p1: #1CB0F6;
+  --color-p2: #CE82FF;
+  --color-success: #58CC02;
+  --color-danger: #FF4B4B;
+  --color-warning: #FF9600;
+
+  /* Polices */
+  --font-display: "Fredoka", "Nunito", system-ui, sans-serif;
+  --font-body: "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* Échelle typographique */
+  --text-hero: clamp(2.75rem, 6vw, 4rem);
+  --text-hero--line-height: 1.05;
+  --text-title: 2rem;
+  --text-title--line-height: 1.1;
+  --text-question: clamp(1.5rem, 1rem + 2.5vw, 2.125rem);
+  --text-question--line-height: 1.2;
+  --text-choice: 1.25rem;
+  --text-choice--line-height: 1.25;
+  --text-choice-lg: 1.375rem;
+  --text-choice-lg--line-height: 1.25;
+  --text-choice-sm: 1.125rem;
+  --text-choice-sm--line-height: 1.25;
+  --text-score: 1.75rem;
+  --text-score--line-height: 1;
+  --text-score-xl: 3rem;
+  --text-score-xl--line-height: 1;
+  --text-timer: 2.5rem;
+  --text-timer--line-height: 1;
+  --text-timer-urgent: 3rem;
+  --text-timer-urgent--line-height: 1;
+  --text-label: 0.8125rem;
+  --text-label--line-height: 1.2;
+
+  /* Rayons */
+  --radius-card: 24px;
+  --radius-btn: 16px;
+  --radius-key: 10px;
+  --radius-chip: 9999px;
+
+  /* Ombres */
+  --shadow-3d: 0 6px 0 0 var(--color-line);
+  --shadow-pop: 0 12px 32px -8px rgba(31, 36, 64, 0.18);
+  --shadow-focus: 0 0 0 4px var(--color-blue-soft);
+
+  /* Animations (utilitaires animate-*) */
+  --animate-pop-in: pop-in 260ms cubic-bezier(.34, 1.56, .64, 1) both;
+  --animate-shake: shake 420ms ease-in-out both;
+  --animate-float: float 3s ease-in-out infinite;
+  --animate-bob: bob 1.8s ease-in-out infinite;
+  --animate-flicker: flicker 500ms ease-in-out infinite;
+  --animate-score-bump: score-bump 350ms cubic-bezier(.34, 1.56, .64, 1) both;
+  --animate-float-up: float-up 700ms ease-out both;
+  --animate-tick: tick 200ms ease-out both;
+  --animate-urgent-halo: urgent-halo 1s ease-in-out infinite alternate;
+  --animate-ring-blink: ring-blink 500ms steps(2) infinite;
+  --animate-pulse-glow: pulse-glow 2s ease-out infinite;
+  --animate-question-in: question-in 180ms ease-out both;
+  --animate-slide-back: slide-back 220ms ease-in both;
+  --animate-crown-drop: crown-drop 500ms cubic-bezier(.34, 1.56, .64, 1) both;
+  --animate-fade-out: fade-out 300ms ease-in both;
+  --animate-shimmer: shimmer 1.4s linear infinite;
+
+  @keyframes pop-in {
+    0% { transform: scale(.6); opacity: 0; }
+    70% { transform: scale(1.08); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    15% { transform: translateX(-8px); }
+    30% { transform: translateX(8px); }
+    45% { transform: translateX(-6px); }
+    60% { transform: translateX(6px); }
+    75% { transform: translateX(-3px); }
+    90% { transform: translateX(3px); }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+  @keyframes bob {
+    0%, 100% { transform: translateY(0) rotate(-3deg); }
+    50% { transform: translateY(-3px) rotate(3deg); }
+  }
+  @keyframes flicker {
+    0% { transform: scale(1) rotate(-4deg); }
+    30% { transform: scale(1.12) rotate(2deg); }
+    60% { transform: scale(.96) rotate(4deg); }
+    80% { transform: scale(1.06) rotate(-2deg); }
+    100% { transform: scale(1) rotate(-4deg); }
+  }
+  @keyframes score-bump {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.4); }
+    100% { transform: scale(1); }
+  }
+  @keyframes float-up {
+    0% { transform: translate(-50%, -50%) translateY(0) scale(.8); opacity: 1; }
+    100% { transform: translate(-50%, -50%) translateY(-56px) scale(1.3); opacity: 0; }
+  }
+  @keyframes tick {
+    0% { transform: scale(1.12); }
+    100% { transform: scale(1); }
+  }
+  @keyframes urgent-halo {
+    0% { box-shadow: inset 0 0 60px rgba(255, 75, 75, 0); }
+    100% { box-shadow: inset 0 0 60px rgba(255, 75, 75, .35); }
+  }
+  @keyframes ring-blink {
+    0% { opacity: 1; }
+    100% { opacity: .5; }
+  }
+  @keyframes pulse-glow {
+    0% { box-shadow: 0 var(--sh-now, 0px) 0 0 var(--shc, transparent), 0 0 0 0 rgba(var(--glow-rgb, 88, 204, 2), .6); }
+    100% { box-shadow: 0 var(--sh-now, 0px) 0 0 var(--shc, transparent), 0 0 0 14px rgba(var(--glow-rgb, 88, 204, 2), 0); }
+  }
+  @keyframes question-in {
+    0% { transform: translateX(24px); opacity: 0; }
+    100% { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes slide-back {
+    0% { transform: scale(1) translateY(0); opacity: 1; }
+    100% { transform: scale(.92) translateY(24px); opacity: 0; }
+  }
+  @keyframes crown-drop {
+    0% { transform: translateY(-40px) rotate(-20deg); opacity: 0; }
+    100% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  }
+  @keyframes fade-out {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+}
+
+/* Points de suspension animés (::after, 4 pas) — hors @theme : animation sur pseudo-élément */
+@keyframes dots {
+  0% { clip-path: inset(0 100% 0 0); }
+  100% { clip-path: inset(0 0 0 0); }
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
 :root {
   color-scheme: light;
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--color-canvas);
+  background-image: radial-gradient(var(--color-canvas-dots) 1.5px, transparent 1.5px);
+  background-size: 24px 24px;
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-weight: 700;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@media (max-height: 600px) {
+  .hide-short { display: none; }
+}
+
+/* ============================================================
+   Composants CSS (§1.4)
+   ============================================================ */
+@layer components {
+  /* Mécanisme 3D : ombre en box-shadow (jamais border-bottom) → aucun reflow */
+  .btn-3d {
+    --sh: 4px;
+    --shc: var(--color-line-strong);
+    --sh-now: var(--sh);
+    box-shadow: 0 var(--sh-now) 0 0 var(--shc);
+    transition: transform 80ms ease-out, box-shadow 80ms ease-out;
+  }
+  .btn-3d:active:not(:disabled) {
+    --sh-now: 0px;
+    transform: translateY(var(--sh));
+  }
+  .btn-3d:disabled { box-shadow: none; }
+  .btn-3d.is-pressed {
+    --sh-now: 0px;
+    transform: translateY(var(--sh));
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .btn-3d:not(:disabled):not(.is-pressed):not(:active):hover {
+      --sh-now: calc(var(--sh) + 2px);
+      transform: translateY(-2px);
+    }
+  }
+
+  .focus-ring:focus-visible {
+    outline: 2px solid var(--color-blue-dark);
+    outline-offset: 2px;
+    box-shadow: var(--shadow-focus), 0 var(--sh-now, 0px) 0 0 var(--shc, transparent);
+  }
+
+  /* Hints clavier : uniquement pointeur fin */
+  .hint-only { display: none; }
+  @media (hover: hover) and (pointer: fine) {
+    .hint-only { display: inline-flex; }
+  }
+
+  /* « En attente… » : trois points révélés en 4 pas */
+  .animate-dots { display: inline-block; }
+  .animate-dots::after {
+    content: "...";
+    display: inline-block;
+    clip-path: inset(0 100% 0 0);
+    animation: dots 1.2s steps(4, jump-none) infinite;
+  }
+
+  /* Halo de glow bleu (Rejoindre prêt) */
+  .pulse-glow-blue { --glow-rgb: 28, 176, 246; }
+
+  /* Skeleton / reflets : dégradé line → line-strong → line balayé par animate-shimmer */
+  .shimmer-bg {
+    background-image: linear-gradient(90deg, var(--color-line) 0%, var(--color-line-strong) 50%, var(--color-line) 100%);
+    background-size: 200% 100%;
+  }
+  .shimmer-overlay {
+    background-image: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, .45) 50%, rgba(255, 255, 255, 0) 100%);
+    background-size: 200% 100%;
+  }
+
+  /* Wrapper Game sous 10 s (halo) ; en reduced motion, bordure rouge statique sur le HUD (.hud) */
+  .urgent { animation: urgent-halo 1s ease-in-out infinite alternate; }
+
+  /* Damier discret derrière les drapeaux */
+  .checker-bg {
+    background-image: repeating-conic-gradient(var(--color-line) 0% 25%, var(--color-card) 0% 50%);
+    background-size: 24px 24px;
+  }
+
+  /* Rature « Boring » */
+  .strike-red { position: relative; display: inline-block; }
+  .strike-red::after {
+    content: "";
+    position: absolute;
+    left: -2%;
+    right: -2%;
+    top: 52%;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--color-red);
+    transform: rotate(-6deg);
+  }
+
+  .text-balance { text-wrap: balance; }
+}
+
+/* ============================================================
+   prefers-reduced-motion (§2.5)
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-dots::after { animation: none !important; clip-path: none; }
+  /* anneau timer ≤ 3 s : pas de clignotement, opacité pleine */
+  .animate-ring-blink { animation: none !important; opacity: 1; }
+  /* Passer : la carte ne disparaît pas en attendant la question suivante */
+  .animate-slide-back { animation: none !important; }
+  /* halo urgent → bordure rouge statique 3 px sur le HUD sticky (pas sur le bord de la fenêtre) */
+  .urgent { animation: none !important; }
+  .urgent .hud { box-shadow: inset 0 0 0 3px var(--color-red); }
 }
