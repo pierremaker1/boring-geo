@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { api } from '../lib/api'
+import { api, ApiError } from '../lib/api'
+import { clearSession } from '../lib/session'
 import { supabase } from '../lib/supabase'
 import type { GameState, Session } from '../types'
 
@@ -21,6 +22,12 @@ export function useGame(session: Session | null) {
         setState(s)
         setError(null)
       } catch (e) {
+        // session périmée (partie supprimée) : on oublie la session et on repart de l'accueil
+        if (e instanceof ApiError && e.code === 'invalid_token') {
+          clearSession()
+          window.location.assign(import.meta.env.BASE_URL)
+          return
+        }
         setError(e instanceof Error ? e.message : String(e))
       } finally {
         pending.current = null
