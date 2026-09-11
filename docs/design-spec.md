@@ -22,7 +22,10 @@ face, marqueur ✓/✗ adverse, hauteurs réservées, accessibilité, sound.ts r
    moment du clic (hauteurs réservées, voir §2.4).
 4. **Contraste des fonds colorés** : le texte posé sur `--color-green`, `--color-blue`, `--color-yellow` est **toujours
    `--color-ink`** (≥ 6:1). Le texte posé sur `--color-red` est blanc, uniquement en ≥ 18 px / 800 (large text, 3.3:1) et
-   toujours doublé d'une icône ✗. Jamais de texte blanc sur vert ou bleu.
+   toujours doublé d'une icône ✗. Jamais de texte blanc sur vert ou bleu. Sur les fonds **-soft** (`*-soft`), le texte
+   est **`text-ink`** (≈ 13:1) ou `text-ink-soft` pour une ligne secondaire ; jamais une couleur `-dark` (blue-dark sur
+   green-soft ≈ 2,8:1). Exception documentée : `text-navy` sur `bg-blue-soft` (6,8:1) pour la chip « Question N » du
+   HUD (Game) et le ToastHost ; ailleurs (Lobby, Home, ModePicker, Results) on reste en ink.
 5. **Animations** : transform / opacity uniquement en boucle ; `prefers-reduced-motion` respecté partout (CSS + JS).
 6. **Sons** : jamais nécessaires pour jouer (chaque son a un équivalent visuel), mute persistant, aucun son pour les
    actions de l'adversaire sauf `join` et le `oppHit` discret (volume ×0,5).

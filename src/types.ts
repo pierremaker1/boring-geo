@@ -7,6 +7,8 @@ export interface GameInfo {
   theme: string
   question_count: number
   duration_seconds: number
+  max_players: number
+  player_count: number
   host_player_id: string
   winner_player_id: string | null
   started_at: string | null
@@ -21,6 +23,8 @@ export interface PlayerInfo {
   answered_count: number
   remaining: number
   finished_at: string | null
+  // classement dans la partie (1 = premier ; ex æquo possibles) ; null sur `opponent`
+  rank: number | null
 }
 
 export interface Question {
@@ -34,10 +38,15 @@ export interface Question {
 export interface GameState {
   game: GameInfo
   me: PlayerInfo
+  // le mieux classé des AUTRES joueurs (null en solo) — pratique pour l'affichage en duel
   opponent: PlayerInfo | null
+  // tous les joueurs, moi compris, triés par classement (score desc, avancement desc, arrivée)
+  players: PlayerInfo[]
   question: Question | null
   server_now: string
 }
+
+export const MAX_PLAYERS = 10
 
 export interface Session {
   game_id: string
