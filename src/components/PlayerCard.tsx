@@ -3,18 +3,27 @@ import { Avatar } from './Avatar'
 import { Mascot } from './Mascot'
 import { Card, Dots } from './ui'
 
-// Carte joueur du Lobby : remplie (avatar 72, pseudo, badges) ou vide (attente d'un adversaire).
-export function PlayerCard({ player, tone, isHost, isMe }: {
+// Deux gabarits : `md` (arène solo/duel, avatar 72) et `sm` (grille à 3+ joueurs, avatar 56, plus dense).
+const SIZE = {
+  md: { avatar: 72, box: 'min-h-[176px]', name: 'text-[20px]' },
+  sm: { avatar: 56, box: 'min-h-[140px]', name: 'text-[17px]' },
+} as const
+
+// Carte joueur du Lobby : remplie (avatar, pseudo, badges) ou vide (attente d'un adversaire).
+export function PlayerCard({ player, tone, isHost, isMe, size = 'md' }: {
   player: PlayerInfo | null
   tone: 'me' | 'opp'
   isHost: boolean
   isMe: boolean
+  size?: 'md' | 'sm'
 }) {
+  const s = SIZE[size]
+
   if (!player) {
     return (
-      <div className="relative flex min-h-[176px] flex-col items-center justify-center gap-3 rounded-card border-2 border-dashed border-line-strong bg-card p-4 text-center">
+      <div className={`relative flex ${s.box} flex-col items-center justify-center gap-3 rounded-card border-2 border-dashed border-line-strong bg-card p-4 text-center`}>
         <span className="inline-block animate-bob">
-          <Avatar name="" tone="neutral" size={72} />
+          <Avatar name="" tone="neutral" size={s.avatar} />
         </span>
         <p className="text-[15px] font-extrabold text-ink-soft">
           En attente d&apos;un adversaire<Dots />
@@ -27,9 +36,9 @@ export function PlayerCard({ player, tone, isHost, isMe }: {
   }
 
   return (
-    <Card tone={tone === 'me' ? 'blue' : 'purple'} padding="sm" pop className="flex min-h-[176px] flex-col items-center justify-center gap-2 text-center">
-      <Avatar name={player.nickname} tone={tone} size={72} />
-      <p className="w-full truncate font-display text-[20px] font-semibold text-ink" title={player.nickname}>
+    <Card tone={tone === 'me' ? 'blue' : 'purple'} padding="sm" pop className={`flex ${s.box} flex-col items-center justify-center gap-2 text-center`}>
+      <Avatar name={player.nickname} tone={tone} size={s.avatar} />
+      <p className={`w-full truncate font-display ${s.name} font-semibold text-ink`} title={player.nickname}>
         {player.nickname}
       </p>
       {(isHost || isMe) && (

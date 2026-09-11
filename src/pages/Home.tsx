@@ -6,7 +6,7 @@ import { loadNickname, loadSession, saveNickname, saveSession } from '../lib/ses
 import { Avatar } from '../components/Avatar'
 import { Mascot } from '../components/Mascot'
 import { Button, Card, Divider, ErrorMsg, Input, Keycap, Page } from '../components/ui'
-import { DEFAULT_MODE } from '../types'
+import { DEFAULT_MODE, MAX_PLAYERS } from '../types'
 
 // ---------------------------------------------------------------------------
 // Décor local (propriété de la page Home — aucun composant partagé modifié)
@@ -45,8 +45,8 @@ function Sticker({ emoji, pos, tilt, delay }: (typeof STICKERS)[number]) {
 }
 
 const STEPS = [
-  'Crée une partie ou entre un code',
-  'Choisis un cours et un mode, partage le code',
+  'Crée une partie (ou entre un code)',
+  'Choisis un cours et un mode ; joue seul ou partage le code',
   'Réponds vite, puis revois tes erreurs',
 ] as const
 
@@ -127,8 +127,8 @@ export function Home() {
           </h1>
         </div>
 
-        <p className="mx-auto mt-3 max-w-[32ch] animate-pop-in text-balance text-lg font-bold text-ink-soft [animation-delay:200ms] motion-reduce:animate-none [@media(max-height:700px)]:mt-1 [@media(max-height:700px)]:text-base">
-          Révise ton cours à deux, contre la montre. Zéro ennui garanti.
+        <p className="mx-auto mt-3 max-w-[36ch] animate-pop-in text-balance text-lg font-bold text-ink-soft [animation-delay:200ms] motion-reduce:animate-none [@media(max-height:700px)]:mt-1 [@media(max-height:700px)]:text-base">
+          Révise ton cours seul ou jusqu'à {MAX_PLAYERS} joueurs, contre la montre. Zéro ennui garanti.
         </p>
       </header>
 
@@ -161,9 +161,15 @@ export function Home() {
 
         <ErrorMsg>{error}</ErrorMsg>
 
-        <Button type="submit" variant="primary" size="xl" loading={busy} disabled={busy || !nick}>
-          Créer une partie 🚀
-        </Button>
+        <div>
+          <Button type="submit" variant="primary" size="xl" loading={busy} disabled={busy || !nick}>
+            Créer une partie 🚀
+          </Button>
+          {/* Le solo se lance depuis le salon (l'hôte peut démarrer seul) : pas de bouton dédié ici */}
+          <p className="mt-2 text-center text-[13px] font-extrabold text-ink-soft">
+            Solo ou jusqu'à {MAX_PLAYERS} joueurs
+          </p>
+        </div>
         </form>
 
         <Divider>ou</Divider>

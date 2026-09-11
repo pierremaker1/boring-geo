@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState, type AnimationEvent } from 'react'
+import { useCallback, useEffect, useId, useRef, useState, type AnimationEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api, ApiError } from '../lib/api'
 import { useGame } from '../hooks/useGame'
+import { useMediaQuery } from '../hooks/useMediaQuery'
 import { useSession } from '../hooks/useSession'
 import { useTimer } from '../hooks/useTimer'
 import { useOpponentPulse } from '../hooks/useOpponentPulse'
@@ -9,6 +10,7 @@ import { useRaceEvents } from '../hooks/useRaceEvents'
 import { PlayerBar } from '../components/PlayerBar'
 import { Button, Card, Dots, ErrorMsg, Keycap, Page, Skeleton } from '../components/ui'
 import { Hud } from '../components/Hud'
+import { Leaderboard, ROOMY_QUERY } from '../components/Leaderboard'
 import { Mascot } from '../components/Mascot'
 import { MuteToggle } from '../components/MuteToggle'
 import { StreakBadge } from '../components/StreakBadge'
@@ -21,7 +23,8 @@ import { sfx } from '../lib/sound'
 import { celebrate } from '../lib/confetti'
 import { loadStreak, saveStreak } from '../lib/streak'
 import { subtypeLabel } from '../lib/subtype'
-import type { Question } from '../types'
+import { raceModeOf } from '../lib/race'
+import type { PlayerInfo, Question } from '../types'
 
 const FEEDBACK_MS = 650
 // Raccourcis 1-4 : `e.key` ('1'…'4') OU `e.code` (Digit/Numpad) — sur AZERTY la rangée de chiffres
@@ -39,6 +42,12 @@ function answerIndexOf(e: KeyboardEvent): number {
   const byCode = DIGIT_CODES.indexOf(e.code)
   if (byCode >= 0) return byCode
   return NUMPAD_CODES.indexOf(e.code)
+}
+
+// Élément focalisé interactif (bouton, lien, champ) : Espace/Entrée lui appartiennent (activation native),
+// le raccourci global « Espace = passer » ne doit pas s'y superposer (double action, passe involontaire).
+function onInteractive(target: EventTarget | null): boolean {
+  return target instanceof Element && !!target.closest('button, a, input, select, textarea, [contenteditable]')
 }
 
 // Après une réponse, on fige la question le temps d'afficher vert/rouge
@@ -85,6 +94,13 @@ export function Game() {
   const warned30 = useRef(false)
   const warned10 = useRef(false)
   const timeUpDone = useRef(false)
+  // Groupe : classement inline sous le HUD quand tout tient (`roomy`), sinon en overlay ouvert depuis la chip de rang
+  // (jamais dans le flux sur petit écran : la 1re réponse doit rester ≤ 300 px du haut en 375 × 667)
+  const roomy = useMediaQuery(ROOMY_QUERY)
+  const [boardOpen, setBoardOpen] = useState(false)
+  const boardId = useId()
+  const toggleBoard = useCallback(() => setBoardOpen((v) => !v), [])
+  const closeBoard = useCallback(() => setBoardOpen(false), [])
 
   const game = state?.game ?? null
   const remaining = useTimer(game?.ends_at ?? null, clockOffset)
@@ -113,13 +129,23 @@ export function Game() {
   if (shownId !== shownMeta.id) {
     setShownMeta({ id: shownId, number: (state?.me.answered_count ?? 0) + 1 })
     if (exitId !== null) setExitId(null)
+    // le classement en overlay se referme à la question suivante : retour à la course
+    if (boardOpen) setBoardOpen(false)
   }
   useEffect(() => {
     shownIdRef.current = shownId
   }, [shownId])
 
+  // Mode de course : solo (1) / duel (2) / groupe (3 à 10). `players` = tous les joueurs classés, moi compris ;
+  // `opponent` = le mieux classé des autres (null en solo). Le compteur serveur prime, la liste sert de filet.
+  const players: PlayerInfo[] = state?.players ?? []
+  const playerCount = Math.max(1, game?.player_count ?? 0, players.length)
+  const mode = raceModeOf(playerCount)
+
+  // Pression adverse : en groupe, le marqueur ✓/✗ suit le leader des autres (state.opponent ; le hook ne compare
+  // que deux observations du même joueur) ; les annonces de rang se fondent sur le rang compétition (players)
   const { marker } = useOpponentPulse(state?.opponent ?? null)
-  useRaceEvents(state?.me ?? null, state?.opponent ?? null, playing)
+  useRaceEvents(state?.me ?? null, state?.opponent ?? null, players, playing, mode)
 
   const answer = useCallback(async (choice: number) => {
     if (!session || !shown || locked) return
@@ -189,7 +215,7 @@ export function Game() {
     }
   }, [session, locked, remainingCount, refresh])
 
-  // raccourcis clavier : 1-4 pour répondre, Espace/P pour passer
+  // raccourcis clavier : 1-4 pour répondre, Espace/P pour passer (pas Espace sur un bouton focalisé : il s'active)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat) return
@@ -198,7 +224,11 @@ export function Game() {
         setPressedKey(i)
         window.setTimeout(() => setPressedKey(null), PRESSED_MS)
         void answer(i)
-      } else if (e.key === ' ' || e.key.toLowerCase() === 'p') { e.preventDefault(); void pass() }
+      } else if (e.key === ' ' || e.key.toLowerCase() === 'p') {
+        if (e.key === ' ' && onInteractive(e.target)) return
+        e.preventDefault()
+        void pass()
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -296,7 +326,19 @@ export function Game() {
   const timeUp = playing && remaining <= 0
   const opponent = state.opponent
   const errorText = actionError ?? error
-  const hasImage = !!shown?.image_url
+  const group = mode === 'group'
+  const finishedCount = players.filter((p) => !!p.finished_at).length
+  // classement pendant la course : inline (grand écran) ou overlay depuis la chip (petit écran)
+  const racingBoard = group && !meDone
+  const board = racingBoard && !roomy ? (
+    <Leaderboard
+      players={players}
+      meId={state.me.id}
+      opponentId={opponent?.id ?? null}
+      total={total}
+      onClose={closeBoard}
+    />
+  ) : undefined
 
   return (
     <Page
@@ -309,10 +351,18 @@ export function Game() {
       <Hud
         me={state.me}
         opponent={opponent}
+        players={players}
+        mode={mode}
+        playerCount={playerCount}
         total={total}
         remaining={remaining}
         duration={game.duration_seconds}
         marker={marker}
+        board={board}
+        boardOpen={boardOpen}
+        onToggleBoard={toggleBoard}
+        onCloseBoard={closeBoard}
+        boardId={boardId}
       >
         {/* EventStrip : hauteur fixe 44 px, série à gauche, son à droite, toast courant centré sur toute la
             largeur (couche au-dessus, jamais tronqué : il peut recouvrir la flamme ≤ 1,8 s) — sticky avec le HUD */}
@@ -331,16 +381,42 @@ export function Game() {
         <ErrorMsg>{errorText}</ErrorMsg>
       </div>
 
+      {/* Groupe, grand écran : classement compact SOUS le HUD (hors sticky), déplié d'office ; sur petit écran il vit
+          dans le HUD (overlay depuis la chip) ; pendant l'attente (« Terminé ! ») il est intégré à la carte, déplié. */}
+      {racingBoard && roomy && (
+        <Leaderboard
+          players={players}
+          meId={state.me.id}
+          opponentId={opponent?.id ?? null}
+          total={total}
+          collapsible
+          className="mt-2"
+        />
+      )}
+
       {meDone ? (
         <Card padding="lg" pop className="mt-2 text-center">
           <Mascot mood="party" size={96} />
           <h2 className="mt-4 font-display text-title font-bold text-ink">Terminé !</h2>
           <p className="mx-auto mt-2 max-w-md text-base font-bold text-ink-soft text-balance">
-            {opponent
-              ? <>Tu as répondu à toutes les questions. Résultats dès que {opponent.nickname} a fini ou que le temps est écoulé…</>
-              : <>Tu as répondu à toutes les questions. Résultats dès que le temps est écoulé.</>}
+            {mode === 'solo'
+              ? <>Tu as répondu à toutes les questions. Résultats dans un instant<Dots /></>
+              : group
+                ? <>Tu as répondu à toutes les questions. Résultats dès que tout le monde a fini ou que le temps est écoulé…</>
+                : opponent
+                  ? <>Tu as répondu à toutes les questions. Résultats dès que {opponent.nickname} a fini ou que le temps est écoulé…</>
+                  : <>Tu as répondu à toutes les questions. Résultats dès que le temps est écoulé.</>}
           </p>
-          {opponent && (
+          {group ? (
+            // -mx-4 sous 640 px : le padding lg de la carte laisserait ~40 px aux pseudos du classement
+            <div className="-mx-4 mt-6 text-left sm:mx-auto sm:max-w-md">
+              <Leaderboard players={players} meId={state.me.id} opponentId={opponent?.id ?? null} total={total} />
+              <p className="mt-3 text-center text-sm font-extrabold text-ink-soft">
+                {finishedCount}/{playerCount} {finishedCount > 1 ? 'joueurs ont fini' : 'joueur a fini'}
+                <Dots />
+              </p>
+            </div>
+          ) : mode === 'duel' && opponent ? (
             <div className="mx-auto mt-6 max-w-md text-left">
               <PlayerBar player={opponent} total={total} isMe={false} size="lg" marker={marker} />
               <p className="mt-3 text-center text-sm font-extrabold text-ink-soft">
@@ -348,7 +424,7 @@ export function Game() {
                 <Dots />
               </p>
             </div>
-          )}
+          ) : null}
         </Card>
       ) : shown ? (
         <div
@@ -370,9 +446,10 @@ export function Game() {
               </span>
             </div>
 
-            {/* prompt : 3 lignes réservées (2 quand un drapeau suit, sur écran court), jamais d'animation d'idle autour */}
+            {/* prompt : 3 lignes réservées (2 sur écran court : la 1re réponse doit rester ≤ 300 px du haut en
+                375 × 667 ; un léger décalage entre questions courtes et longues est le prix), jamais d'animation d'idle autour */}
             <h2
-              className={`mt-3 font-body text-question font-black text-ink text-balance ${hasImage ? 'min-h-[3.6em] [@media(max-height:700px)]:min-h-[2.4em]' : 'min-h-[3.6em]'}`}
+              className="mt-3 min-h-[3.6em] font-body text-question font-black text-ink text-balance [@media(max-height:700px)]:min-h-[2.4em]"
             >
               {shown.prompt}
             </h2>

@@ -8,7 +8,13 @@ function starsFor(score: number, total: number): 0 | 1 | 2 | 3 {
 }
 
 // Trois étoiles de précision (score / total) qui apparaissent en cascade avec un son par étoile gagnée.
-export function Stars({ score, total, delay = 0 }: { score: number; total: number; delay?: number }) {
+// `label` : légende sous les étoiles (« Précision » ; la carte groupe y met le pourcentage pour ne pas le répéter à côté).
+export function Stars({ score, total, delay = 0, label = 'Précision' }: {
+  score: number
+  total: number
+  delay?: number
+  label?: string
+}) {
   const reduced = useReducedMotion()
   const n = starsFor(score, total)
   const played = useRef(false)
@@ -37,7 +43,7 @@ export function Stars({ score, total, delay = 0 }: { score: number; total: numbe
           </span>
         ))}
       </div>
-      <span className="text-[12px] font-extrabold uppercase tracking-[.06em] text-ink-soft">Précision</span>
+      <span className="whitespace-nowrap text-[12px] font-extrabold uppercase tracking-[.06em] text-ink-soft">{label}</span>
     </div>
   )
 }
